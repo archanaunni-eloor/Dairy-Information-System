@@ -284,42 +284,23 @@ if authentication_status:
                         st.dataframe(df.head(), use_container_width=True)
                         if st.button(ln["upload_btn"]):
                             try:
+                                #conn = get_db_connection()
+                                #cursor = conn.cursor()
                                 conn = sqlite3.connect('data.sqlite')
                                 cursor = conn.cursor()
-                                
-                                # SQLite-ന് വേണ്ടിയുള്ള കൃത്യമായ ക്വറി (INSERT OR REPLACE)
-                                # ഇത് society_name, month_name എന്നിവ Unique ആണെങ്കിൽ പഴയ ഡാറ്റ പുതുക്കിക്കോളും.
-                                sql = """INSERT OR REPLACE INTO milk_procurement 
-                                        (society_name, month_name, milk_collected_liters, cattle_count, breed_type, feed_qty_kg, fodder_area_acres, subsidy_amount, avg_ai_attempts, avg_farmer_age, shed_facility_score, vaccination_status) 
-                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
-                                
                                 for index, row in df.iterrows():
                                     liters = float(row['Liters'])
                                     calculated_subsidy = min(liters * 3.0, 40000.0)
-                                    
-                                    # ട്യൂപ്പിൾ വാല്യൂസ് അതേപടി നൽകുന്നു
-                                    cursor.execute(sql, (
-                                        str(row['Society_Name']), 
-                                        str(row['Month']), 
-                                        liters, 
-                                        int(row['Cattle_Count']), 
-                                        str(row['Breed_Type']), 
-                                        float(row['Feed_Qty_Kg']), 
-                                        float(row['Fodder_Area']), 
-                                        calculated_subsidy, 
-                                        float(row['Avg_AI_Attempts']), 
-                                        int(row['Avg_Farmer_Age']), 
-                                        int(row['Shed_Score']), 
-                                        str(row['Vaccination'])
-                                    ))
-                                    
+                                    sql = """INSERT INTO milk_procurement 
+                                            (society_name, month_name, milk_collected_liters, cattle_count, breed_type, feed_qty_kg, fodder_area_acres, subsidy_amount, avg_ai_attempts, avg_farmer_age, shed_facility_score, vaccination_status) 
+                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                            ON DUPLICATE KEY UPDATE milk_collected_liters=VALUES(milk_collected_liters), cattle_count=VALUES(cattle_count);"""
+                                    cursor.execute(sql, (row['Society_Name'], row['Month'], liters, int(row['Cattle_Count']), str(row['Breed_Type']), float(row['Feed_Qty_Kg']), float(row['Fodder_Area']), calculated_subsidy, float(row['Avg_AI_Attempts']), int(row['Avg_Farmer_Age']), int(row['Shed_Score']), str(row['Vaccination'])))
                                 conn.commit()
-                                cursor.close()
-                                conn.close()
-                                st.success("🎉 Data saved successfully to SQLite!")
-                                
-                            except Exception as e: 
-                                st.error(f"⚠️ Database Error: {e}")
+                                cursor.close(); conn.close()
+                                st.success("🎉 Data saved successfully!")
+                                # st.rerun() -> പേജ് മാറിപ്പോകാതിരിക്കാൻ ഇത് കമന്റ് ചെയ്യുന്നു
+                            except Exception as e: st.error(f"⚠️ Database Error: {e}")
         try:
             #conn = get_db_connection()
             conn = sqlite3.connect('data.sqlite')
