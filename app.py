@@ -602,3 +602,21 @@ if authentication_status:
                     with st.chat_message("assistant"): st.markdown(ai_response.text)
                     st.session_state.chat_messages.append({"role": "assistant", "content": ai_response.text})
             except Exception as e: st.error(f"⚠️ Error: {e}")
+# ─── SIDEBAR CONTACT DETAILS ───
+with st.sidebar:
+    st.divider() # ഒരു ചെറിയ വരയിട്ട് വേർതിരിക്കുന്നു
+    st.markdown("### 📞 Contact Developer")
+    
+    # നിങ്ങളുടെ പേരും വിവരങ്ങളും (ലിങ്ക്ഡ്ഇൻ, ഗിറ്റ്ഹബ്ബ് ലിങ്കുകൾ സഹിതം)
+    st.markdown("""
+    **Unni R**  
+    *Data Analyst & Technical Professional*  
+    📍 Kochi, Kerala, India  
+    
+    📧 [archanaunni@gmail.com](mailto:archanaunni@gmail.com)  
+    💼 [LinkedIn Profile](https://www.linkedin.com/in/unni-r-b09398a7/)  
+    🐙 [GitHub Repository](https://github.com/archanaunni-eloor/Dairy-Information-System)
+    """)
+    
+    # ചെറിയൊരു ഭംഗിക്ക് ഒരു ക്യാപ്ഷൻ കൂടി നൽകാം
+    st.caption("Built with ❤️ using Streamlit & SQLite")
