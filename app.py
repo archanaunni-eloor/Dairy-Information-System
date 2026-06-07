@@ -386,7 +386,9 @@ if authentication_status:
                     predict_btn = st.button(ln["run_engine"], use_container_width=True)
                     
                 if predict_btn:
+                    df_mysql['feed_qty_kg'] = pd.to_numeric(df_mysql['feed_qty_kg'], errors='coerce')
                     df_mysql['feed_squared'] = df_mysql['feed_qty_kg'] ** 2
+                    #df_mysql['feed_squared'] = df_mysql['feed_qty_kg'] ** 2
                     X = df_mysql[['cattle_count', 'feed_qty_kg', 'feed_squared', 'fodder_area_acres', 'avg_ai_attempts', 'society_name', 'month_name']]
                     y = df_mysql['milk_collected_liters']
                     X_encoded = pd.get_dummies(X, columns=['society_name', 'month_name'])
