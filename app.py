@@ -182,7 +182,7 @@ st.markdown("""
 
 # Auth Configuration
 credentials = {"usernames": {
-    "admin": {"name": "Unni R (Admin)", "password": "admin123", "logged_in": False},
+    "unni": {"name": "Unni R (Admin)", "password": "admin123", "logged_in": False},
     "officer": {"name": "Dairy Extension Officer", "password": "user123", "logged_in": False}
 }}
 
