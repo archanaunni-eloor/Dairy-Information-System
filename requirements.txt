@@ -2,3 +2,5 @@ streamlit
 streamlit-authenticator
 plotly
 pandas
+google-generativeai
+scikit-learn

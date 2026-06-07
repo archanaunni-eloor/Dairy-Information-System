@@ -310,6 +310,8 @@ if authentication_status:
                 m_col1, m_col2, m_col3, m_col4 = st.columns(4)
                 m_col1.metric(ln["total_milk"], f"{df_mysql['milk_collected_liters'].sum():,} Lts")
                 m_col2.metric(ln["total_cattle"], f"{df_mysql['cattle_count'].sum():,}")
+                df_mysql['avg_farmer_age'] = pd.to_numeric(df_mysql['avg_farmer_age'], errors='coerce')
+                df_mysql['avg_ai_attempts'] = pd.to_numeric(df_mysql['avg_ai_attempts'], errors='coerce')
                 m_col3.metric(ln["avg_age"], f"{int(df_mysql['avg_farmer_age'].mean())} Years")
                 m_col4.metric(ln["ai_attempts"], f"{df_mysql['avg_ai_attempts'].mean():.2f}")
                 
@@ -361,8 +363,11 @@ if authentication_status:
                     with p_col1:
                         selected_soc = st.selectbox(ln["target_soc"], ["All Societies"] + list(df_mysql['society_name'].unique()))
                         target_month = st.selectbox(ln["target_month"], list(df_mysql['month_name'].unique()))
+                        df_mysql['cattle_count'] = pd.to_numeric(df_mysql['cattle_count'], errors='coerce')
                         expected_cattle = st.slider(ln["active_cattle"], 1, int(df_mysql['cattle_count'].max()+50), int(df_mysql['cattle_count'].mean()))
                     with p_col2:
+                        df_mysql['feed_qty_kg'] = pd.to_numeric(df_mysql['feed_qty_kg'], errors='coerce')
+                        df_mysql['avg_ai_attempts'] = pd.to_numeric(df_mysql['avg_ai_attempts'], errors='coerce')
                         expected_feed = st.slider(ln["exp_feed"], 0, int(df_mysql['feed_qty_kg'].max()+5000), int(df_mysql['feed_qty_kg'].mean()))
                         expected_ai = st.slider(ln["anti_breed"], 1.0, 5.0, float(df_mysql['avg_ai_attempts'].mean()), step=0.1)
                     
@@ -408,6 +413,7 @@ if authentication_status:
                         pred_row['feed_qty_kg'] = expected_feed
                         pred_row['feed_squared'] = expected_feed ** 2
                         pred_row['avg_ai_attempts'] = expected_ai
+                        df_mysql['fodder_area_acres'] = pd.to_numeric(df_mysql['fodder_area_acres'], errors='coerce')
                         pred_row['fodder_area_acres'] = float(df_mysql['fodder_area_acres'].mean())
                         
                         if f"society_name_{selected_soc}" in pred_row.columns: pred_row[f"society_name_{selected_soc}"] = 1
@@ -438,6 +444,7 @@ if authentication_status:
                             pred_row['feed_qty_kg'] = expected_feed
                             pred_row['feed_squared'] = expected_feed ** 2
                             pred_row['avg_ai_attempts'] = expected_ai
+                            df_mysql['fodder_area_acres'] = pd.to_numeric(df_mysql['fodder_area_acres'], errors='coerce')
                             pred_row['fodder_area_acres'] = float(df_mysql['fodder_area_acres'].mean())
                             
                             if f"society_name_{soc}" in pred_row.columns: pred_row[f"society_name_{soc}"] = 1
@@ -465,6 +472,7 @@ if authentication_status:
             conn.close()
             
             if not df_mysql.empty:
+                df_mysql['avg_farmer_age'] = pd.to_numeric(df_mysql['avg_farmer_age'], errors='coerce')
                 avg_age_district = df_mysql['avg_farmer_age'].mean() if 'avg_farmer_age' in df_mysql.columns else 45.4
                 
                 # ക്യാറ്റിൽ കൗണ്ട് പൂജ്യമല്ലെന്ന് ഉറപ്പാക്കി ശരാശരി കണക്കാക്കുന്നു
