@@ -353,7 +353,10 @@ if authentication_status:
             conn = sqlite3.connect('data.sqlite')
             df_mysql = pd.read_sql("SELECT society_name, month_name, milk_collected_liters, feed_qty_kg, cattle_count, fodder_area_acres, avg_ai_attempts FROM milk_procurement", conn)
             conn.close()
-            
+            numeric_cols = ['milk_collected_liters', 'feed_qty_kg', 'cattle_count', 'fodder_area_acres', 'avg_ai_attempts']
+            for col in numeric_cols:
+                if col in df_mysql.columns:
+                    df_mysql[col] = pd.to_numeric(df_mysql[col], errors='coerce')
             if not df_mysql.empty and len(df_mysql) >= 3:
                 from sklearn.linear_model import LinearRegression
                 
