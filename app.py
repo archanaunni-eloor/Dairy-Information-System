@@ -276,41 +276,76 @@ if authentication_status:
                 uploaded_file = st.file_uploader("Choose Dairy Data File", type=["csv", "xlsx"])
                 if uploaded_file is not None:
                     df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
-                    required_columns = ['Society_Name', 'Month', 'Liters', 'Cattle_Count', 'Breed_Type', 'Feed_Qty_Kg', 'Fodder_Area', 'Avg_AI_Attempts', 'Avg_Farmer_Age', 'Shed_Score', 'Vaccination']
-                    missing_headers = [col for col in required_columns if col not in df.columns]
+                    
+                    # 💡 മാപ്പിംഗ് എളുപ്പമാക്കാൻ അപ്‌ലോഡ് ചെയ്ത ഫയലിലെ കോളം പേരുകൾ താൽക്കാലികമായി ലോവർകേസ് ആക്കുന്നു
+                    original_columns = list(df.columns)
+                    df.columns = [col.strip().lower() for col in df.columns]
+                    
+                    # നമ്മൾ ഫയലിൽ പ്രതീക്ഷിക്കുന്ന കൃത്യമായ ലോവർകേസ് പേരുകൾ
+                    required_columns_lower = {
+                        'society_name': 'Society_Name',
+                        'month_name': 'Month', # ഫയലിൽ month_name അല്ലെങ്കിൽ month എന്ന് വന്നാൽ എടുക്കാൻ താഴെ ലോജിക് ഉണ്ട്
+                        'milk_collected_liters': 'Liters',
+                        'cattle_count': 'Cattle_Count',
+                        'breed_type': 'Breed_Type',
+                        'feed_qty_kg': 'Feed_Qty_Kg',
+                        'fodder_area_acres': 'Fodder_Area',
+                        'avg_ai_attempts': 'Avg_AI_Attempts',
+                        'avg_farmer_age': 'Avg_Farmer_Age',
+                        'shed_facility_score': 'Shed_Score',
+                        'vaccination_status': 'Vaccination'
+                    }
+                    
+                    # ഫയലിൽ 'month' എന്നോ 'fodder_area' എന്നോ ലളിതമായി വന്നാലും സപ്പോർട്ട് ചെയ്യാൻ വേണ്ടിയുള്ള ഒരു ഫ്ലെക്സിബിലിറ്റി
+                    if 'month' in df.columns and 'month_name' not in df.columns:
+                        df.rename(columns={'month': 'month_name'}, inplace=True)
+                    if 'fodder_area' in df.columns and 'fodder_area_acres' not in df.columns:
+                        df.rename(columns={'fodder_area': 'fodder_area_acres'}, inplace=True)
+                    if 'shed_score' in df.columns and 'shed_facility_score' not in df.columns:
+                        df.rename(columns={'shed_score': 'shed_facility_score'}, inplace=True)
+                    if 'vaccination' in df.columns and 'vaccination_status' not in df.columns:
+                        df.rename(columns={'vaccination': 'vaccination_status'}, inplace=True)
+                    if 'liters' in df.columns and 'milk_collected_liters' not in df.columns:
+                        df.rename(columns={'liters': 'milk_collected_liters'}, inplace=True)
+                        
+                    # ഏതെങ്കിലും കോളങ്ങൾ മിസ്സിംഗ് ആണോ എന്ന് നോക്കുന്നു
+                    missing_headers = [display_name for col_lower, display_name in required_columns_lower.items() if col_lower not in df.columns]
                     
                     if missing_headers:
                         st.error(f"{ln['column_mismatch_err']} `{missing_headers}`")
                     else:   
                         st.write("📊 Uploaded Data Preview:")
-                        st.dataframe(df.head(), use_container_width=True)
+                        # ഡാഷ്‌ബോർഡിൽ യൂസർക്ക് കാണുമ്പോൾ പഴയ ഒറിജിനൽ കോളത്തിൽ തന്നെ കാണിക്കുന്നു
+                        df_preview = df.copy()
+                        df_preview.columns = [required_columns_lower[col] for col in df_preview.columns]
+                        st.dataframe(df_preview.head(), use_container_width=True)
+                        
                         if st.button(ln["upload_btn"]):
                             try:
                                 conn = sqlite3.connect('data.sqlite')
                                 cursor = conn.cursor()
                                 
-                                # SQLite-ന് അനുയോജ്യമായ INSERT OR REPLACE ക്വറി (? ഉപയോഗിച്ച്)
                                 sql = """INSERT OR REPLACE INTO milk_procurement 
                                         (society_name, month_name, milk_collected_liters, cattle_count, breed_type, feed_qty_kg, fodder_area_acres, subsidy_amount, avg_ai_attempts, avg_farmer_age, shed_facility_score, vaccination_status) 
                                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
                                 
                                 for index, row in df.iterrows():
-                                    liters = float(row['Liters'])
+                                    liters = float(row['milk_collected_liters'])
                                     calculated_subsidy = min(liters * 3.0, 40000.0)
                                     
                                     cursor.execute(sql, (
-                                        str(row['Society_Name']), 
-                                        str(row['Month']), 
+                                        str(row['society_name']), 
+                                        str(row['month_name']), 
                                         liters, 
-                                        int(row['Cattle_Count']), 
-                                        str(row['Breed_Type']), 
-                                        float(row['Feed_Qty_Kg']), 
-                                        float(row['Fodder_Area']), 
+                                        int(row['cattle_count']), 
+                                        str(row['breed_type']), 
+                                        float(row['feed_qty_kg']), 
+                                        float(row['fodder_area_acres']), 
                                         calculated_subsidy, 
-                                        float(row['Avg_AI_Attempts']), 
-                                        int(row['Avg_Farmer_Age']), 
-                                        int(row['Shed_Score']), 
-                                        str(row['Vaccination'])
+                                        float(row['avg_ai_attempts']), 
+                                        int(row['avg_farmer_age']), 
+                                        int(row['shed_facility_score']), 
+                                        str(row['vaccination_status'])
                                     ))
                                 conn.commit()
                                 cursor.close()
