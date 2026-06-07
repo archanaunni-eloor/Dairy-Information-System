@@ -277,26 +277,26 @@ if authentication_status:
                 if uploaded_file is not None:
                     df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
                     
-                    # 💡 മാപ്പിംഗ് എളുപ്പമാക്കാൻ അപ്‌ലോഡ് ചെയ്ത ഫയലിലെ കോളം പേരുകൾ താൽക്കാലികമായി ലോവർകേസ് ആക്കുന്നു
-                    original_columns = list(df.columns)
+                    # കോളം പേരുകൾ ചെറിയക്ഷരമാക്കുന്നു
                     df.columns = [col.strip().lower() for col in df.columns]
                     
-                    # നമ്മൾ ഫയലിൽ പ്രതീക്ഷിക്കുന്ന കൃത്യമായ ലോവർകേസ് പേരുകൾ
+                    # 💡 എല്ലാ കോളങ്ങളും കൃത്യമായി മാപ്പ് ചെയ്യാൻ സബ്സിഡിയും ഇവിടെ ചേർത്തു
                     required_columns_lower = {
                         'society_name': 'Society_Name',
-                        'month_name': 'Month', # ഫയലിൽ month_name അല്ലെങ്കിൽ month എന്ന് വന്നാൽ എടുക്കാൻ താഴെ ലോജിക് ഉണ്ട്
+                        'month_name': 'Month',
                         'milk_collected_liters': 'Liters',
                         'cattle_count': 'Cattle_Count',
                         'breed_type': 'Breed_Type',
                         'feed_qty_kg': 'Feed_Qty_Kg',
                         'fodder_area_acres': 'Fodder_Area',
+                        'subsidy_amount': 'Subsidy_Amount',  # 👈 ഇത് വിട്ടുപോയതായിരുന്നു പ്രശ്നം!
                         'avg_ai_attempts': 'Avg_AI_Attempts',
                         'avg_farmer_age': 'Avg_Farmer_Age',
                         'shed_facility_score': 'Shed_Score',
                         'vaccination_status': 'Vaccination'
                     }
                     
-                    # ഫയലിൽ 'month' എന്നോ 'fodder_area' എന്നോ ലളിതമായി വന്നാലും സപ്പോർട്ട് ചെയ്യാൻ വേണ്ടിയുള്ള ഒരു ഫ്ലെക്സിബിലിറ്റി
+                    # പഴയ ടെംപ്ലേറ്റ് കോളങ്ങൾ ആണെങ്കിൽ പുതിയ ഫോർമാറ്റിലേക്ക് മാറ്റുന്നു
                     if 'month' in df.columns and 'month_name' not in df.columns:
                         df.rename(columns={'month': 'month_name'}, inplace=True)
                     if 'fodder_area' in df.columns and 'fodder_area_acres' not in df.columns:
@@ -307,18 +307,30 @@ if authentication_status:
                         df.rename(columns={'vaccination': 'vaccination_status'}, inplace=True)
                     if 'liters' in df.columns and 'milk_collected_liters' not in df.columns:
                         df.rename(columns={'liters': 'milk_collected_liters'}, inplace=True)
+                    if 'subsidy' in df.columns and 'subsidy_amount' not in df.columns:
+                        df.rename(columns={'subsidy': 'subsidy_amount'}, inplace=True)
                         
-                    # ഏതെങ്കിലും കോളങ്ങൾ മിസ്സിംഗ് ആണോ എന്ന് നോക്കുന്നു
-                    missing_headers = [display_name for col_lower, display_name in required_columns_lower.items() if col_lower not in df.columns]
+                    # അവശ്യം വേണ്ട പ്രധാന 11 കോളങ്ങൾ ഉണ്ടോ എന്ന് നോക്കുന്നു (subsidy തനിയെ കണക്കാക്കുന്നതിനാൽ ചെക്കിംഗിൽ ഒഴിവാക്കാം)
+                    check_columns = ['society_name', 'month_name', 'milk_collected_liters', 'cattle_count', 'breed_type', 'feed_qty_kg', 'fodder_area_acres', 'avg_ai_attempts', 'avg_farmer_age', 'shed_facility_score', 'vaccination_status']
+                    missing_headers = [required_columns_lower[col] for col in check_columns if col not in df.columns]
                     
                     if missing_headers:
                         st.error(f"{ln['column_mismatch_err']} `{missing_headers}`")
                     else:   
                         st.write("📊 Uploaded Data Preview:")
-                        # ഡാഷ്‌ബോർഡിൽ യൂസർക്ക് കാണുമ്പോൾ പഴയ ഒറിജിനൽ കോളത്തിൽ തന്നെ കാണിക്കുന്നു
+                        
+                        # സുരക്ഷിതമായി മാത്രം കോളം പേരുകൾ മാറ്റി പ്രിവ്യൂ കാണിക്കുന്നു
                         df_preview = df.copy()
-                        df_preview.columns = [required_columns_lower[col] for col in df_preview.columns]
-                        st.dataframe(df_preview.head(), use_container_width=True)
+                        preview_cols = []
+                        for col in df_preview.columns:
+                            if col in required_columns_lower:
+                                preview_cols.append(required_columns_lower[col])
+                            else:
+                                preview_cols.append(col.title()) # ലിസ്റ്റിൽ ഇല്ലാത്ത കോളം വന്നാൽ ക്യാപിറ്റൽ ലെറ്റർ ആക്കുന്നു
+                        df_preview.columns = preview_cols
+                        
+                        # 💡 പുതിയ വേർഷൻ അനുസരിച്ച് width='stretch' ഉപയോഗിച്ചു
+                        st.dataframe(df_preview.head(), width='stretch')
                         
                         if st.button(ln["upload_btn"]):
                             try:
@@ -331,7 +343,11 @@ if authentication_status:
                                 
                                 for index, row in df.iterrows():
                                     liters = float(row['milk_collected_liters'])
-                                    calculated_subsidy = min(liters * 3.0, 40000.0)
+                                    # അപ്‌ലോഡ് ചെയ്യുന്ന ഫയലിൽ ഓൾറെഡി സബ്സിഡി ഉണ്ടെങ്കിൽ അത് എടുക്കുക, ഇല്ലെങ്കിൽ കണക്കുകൂട്ടുക
+                                    if 'subsidy_amount' in row and not pd.isna(row['subsidy_amount']):
+                                        calculated_subsidy = float(row['subsidy_amount'])
+                                    else:
+                                        calculated_subsidy = min(liters * 3.0, 40000.0)
                                     
                                     cursor.execute(sql, (
                                         str(row['society_name']), 
