@@ -423,14 +423,15 @@ if authentication_status:
     elif page == ln["menu_2"]:
         st.markdown(f'<div class="main-title">🔮 ML Production & Optimum Feed Engine</div>', unsafe_allow_html=True)
         try:
-            #conn = get_db_connection()
             conn = sqlite3.connect('data.sqlite')
             df_mysql = pd.read_sql("SELECT society_name, month_name, milk_collected_liters, feed_qty_kg, cattle_count, fodder_area_acres, avg_ai_attempts FROM milk_procurement", conn)
             conn.close()
+            
             numeric_cols = ['milk_collected_liters', 'feed_qty_kg', 'cattle_count', 'fodder_area_acres', 'avg_ai_attempts']
             for col in numeric_cols:
                 if col in df_mysql.columns:
                     df_mysql[col] = pd.to_numeric(df_mysql[col], errors='coerce')
+                    
             if not df_mysql.empty and len(df_mysql) >= 3:
                 from sklearn.linear_model import LinearRegression
                 
@@ -440,20 +441,20 @@ if authentication_status:
                     with p_col1:
                         selected_soc = st.selectbox(ln["target_soc"], ["All Societies"] + list(df_mysql['society_name'].unique()))
                         target_month = st.selectbox(ln["target_month"], list(df_mysql['month_name'].unique()))
-                        df_mysql['cattle_count'] = pd.to_numeric(df_mysql['cattle_count'], errors='coerce')
-                        expected_cattle = st.slider(ln["active_cattle"], 1, int(df_mysql['cattle_count'].max()+50), int(df_mysql['cattle_count'].mean()))
+                        
+                        # സ്കെയിലിംഗ് എളുപ്പമാക്കാൻ സ്ലൈഡറുകൾ ശരാശരി വാല്യൂവിൽ സെറ്റ് ചെയ്യുന്നു
+                        mean_cattle = int(df_mysql['cattle_count'].mean()) if not pd.isna(df_mysql['cattle_count'].mean()) else 100
+                        expected_cattle = st.slider(ln["active_cattle"], 1, int(df_mysql['cattle_count'].max()+50), mean_cattle)
                     with p_col2:
-                        df_mysql['feed_qty_kg'] = pd.to_numeric(df_mysql['feed_qty_kg'], errors='coerce')
-                        df_mysql['avg_ai_attempts'] = pd.to_numeric(df_mysql['avg_ai_attempts'], errors='coerce')
-                        expected_feed = st.slider(ln["exp_feed"], 0, int(df_mysql['feed_qty_kg'].max()+5000), int(df_mysql['feed_qty_kg'].mean()))
-                        expected_ai = st.slider(ln["anti_breed"], 1.0, 5.0, float(df_mysql['avg_ai_attempts'].mean()), step=0.1)
+                        mean_feed = int(df_mysql['feed_qty_kg'].mean()) if not pd.isna(df_mysql['feed_qty_kg'].mean()) else 2000
+                        expected_feed = st.slider(ln["exp_feed"], 0, int(df_mysql['feed_qty_kg'].max()+5000), mean_feed)
+                        expected_ai = st.slider(ln["anti_breed"], 1.0, 5.0, float(df_mysql['avg_ai_attempts'].mean() if not pd.isna(df_mysql['avg_ai_attempts'].mean()) else 2.0), step=0.1)
                     
-                    predict_btn = st.button(ln["run_engine"], use_container_width=True)
+                    # 💡use_container_width മുന്നറിയിപ്പ് ഒഴിവാക്കാൻ width='stretch' ആക്കി
+                    predict_btn = st.button(ln["run_engine"], width='stretch')
                     
                 if predict_btn:
-                    df_mysql['feed_qty_kg'] = pd.to_numeric(df_mysql['feed_qty_kg'], errors='coerce')
                     df_mysql['feed_squared'] = df_mysql['feed_qty_kg'] ** 2
-                    #df_mysql['feed_squared'] = df_mysql['feed_qty_kg'] ** 2
                     X = df_mysql[['cattle_count', 'feed_qty_kg', 'feed_squared', 'fodder_area_acres', 'avg_ai_attempts', 'society_name', 'month_name']]
                     y = df_mysql['milk_collected_liters']
                     X_encoded = pd.get_dummies(X, columns=['society_name', 'month_name'])
@@ -461,44 +462,38 @@ if authentication_status:
                     model = LinearRegression()
                     model.fit(X_encoded, y)
                     
-                    # 1. 📋 ഫീഡ് റേഷൻ ചാർട്ട് (ഡിക്ഷണറി വഴി ലാംഗ്വേജ് ഫിക്സ് ചെയ്തു)
+                    # 1. 📋 ഫീഡ് റേഷൻ കണക്കുകൂട്ടൽ
                     st.subheader(ln["ration_title"])
                     r_col1, r_col2, r_col3 = st.columns(3)
                     maint_ration = 2.0 
-                    # 📊 തിരുത്തിയ കോഡ്: മാസത്തെ പാലിനെ ദിവസത്തെ പാലിനാക്കി മാറ്റുന്നു (Divided by 30)
+                    
                     if 'cattle_count' in df_mysql.columns and 'milk_collected_liters' in df_mysql.columns:
                         total_milk = df_mysql['milk_collected_liters'].sum()
                         total_cattle = df_mysql['cattle_count'].sum()
-                        
-                        # ആദ്യം ഒരു പശുവിന്റെ മാസത്തെ ശരാശരി കാണുന്നു, അതിനെ 30 കൊണ്ട് ഹരിച്ച് ഒരു ദിവസത്തെ കാണുന്നു
                         avg_milk_per_cow_daily = ((total_milk / total_cattle) / 30) if total_cattle > 0 else 4.0
                     else:
                         avg_milk_per_cow_daily = 4.0
 
                     production_ration = avg_milk_per_cow_daily * 0.4
-                    total_feed = 2.0 + production_ration
                     
                     r_col1.metric(ln["maint_ration_lbl"], f"{maint_ration} {ln['day_unit']}", ln["maint_ration_sub"])
                     r_col2.metric(ln["prod_ration_lbl"], f"{production_ration:.2f} {ln['day_unit']}", ln["prod_ration_sub"])
                     r_col3.metric(ln["total_ration_lbl"], f"{(maint_ration + production_ration):.2f} {ln['day_unit']}")
                     
-                    # 🛠️ തിരുത്ത് 2: Yield സീറോ (0) കാണിക്കുന്നത് ഒഴിവാക്കാനുള്ള ബേസ് വാല്യൂ ലോജിക്
-                    # ഡാറ്റാബേസിലെ ഏറ്റവും കുറഞ്ഞ ലിറ്ററോ അല്ലെങ്കിൽ 100 ലിറ്ററോ ബേസ് വാല്യൂ ആയി സെറ്റ് ചെയ്യുന്നു
                     base_floor_yield = max(100.0, float(df_mysql['milk_collected_liters'].min()))
                     
+                    # ─── SINGLE SOCIETY PREDICTION ───
                     if selected_soc != "All Societies":
                         pred_row = pd.DataFrame(0, index=[0], columns=X_encoded.columns)
                         pred_row['cattle_count'] = expected_cattle
                         pred_row['feed_qty_kg'] = expected_feed
                         pred_row['feed_squared'] = expected_feed ** 2
                         pred_row['avg_ai_attempts'] = expected_ai
-                        df_mysql['fodder_area_acres'] = pd.to_numeric(df_mysql['fodder_area_acres'], errors='coerce')
                         pred_row['fodder_area_acres'] = float(df_mysql['fodder_area_acres'].mean())
                         
                         if f"society_name_{selected_soc}" in pred_row.columns: pred_row[f"society_name_{selected_soc}"] = 1
                         if f"month_name_{target_month}" in pred_row.columns: pred_row[f"month_name_{target_month}"] = 1
                         
-                        # നെഗറ്റീവോ സീറോയോ വന്നാൽ ബേസ് യീൽഡിലേക്ക് മാറ്റുന്നു
                         raw_pred = model.predict(pred_row)[0]
                         pred_val = base_floor_yield if raw_pred <= 10.0 else raw_pred
                         
@@ -513,31 +508,56 @@ if authentication_status:
                         if test_pred < raw_pred: st.error(ln["diminishing_err"])
                         else: st.info(ln["diminishing_info"])
                             
+                    # ─── ALL SOCIETIES PREDICTION (🛠️ ഫിക്സ് ചെയ്ത ഭാഗം) ───
                     else:
                         societies = df_mysql['society_name'].unique()
                         total_pred = 0.0
                         breakdown = []
+                        
+                        # സ്ലൈഡറിൽ നിന്നുള്ള വ്യത്യാസം കാണാൻ ഉള്ള സ്കെയിൽ ഫാക്ടർ എടുക്കുന്നു
+                        cattle_scale = expected_cattle / mean_cattle if mean_cattle > 0 else 1.0
+                        feed_scale = expected_feed / mean_feed if mean_feed > 0 else 1.0
+                        
                         for soc in societies:
+                            # 💡 അതാത് സൊസൈറ്റിയുടെ ഡാറ്റാബേസിലെ നിലവിലുള്ള യഥാർത്ഥ വാല്യൂസ് കണ്ടെത്തുന്നു
+                            soc_data = df_mysql[df_mysql['society_name'] == soc]
+                            if not soc_data.empty:
+                                base_cattle = soc_data['cattle_count'].iloc[0]
+                                base_feed = soc_data['feed_qty_kg'].iloc[0]
+                                base_fodder = soc_data['fodder_area_acres'].iloc[0]
+                            else:
+                                base_cattle = mean_cattle
+                                base_feed = mean_feed
+                                base_fodder = df_mysql['fodder_area_acres'].mean()
+                                
                             pred_row = pd.DataFrame(0, index=[0], columns=X_encoded.columns)
-                            pred_row['cattle_count'] = expected_cattle
-                            pred_row['feed_qty_kg'] = expected_feed
-                            pred_row['feed_squared'] = expected_feed ** 2
+                            
+                            # 💡 സ്ലൈഡറിലെ മാറ്റത്തിനനുസരിച്ച് ഓരോ സൊസൈറ്റിയുടെയും ഇൻപുട്ട് പ്രൊപ്പോർഷനേറ്റ് ആയി മാറ്റുന്നു
+                            pred_row['cattle_count'] = int(base_cattle * cattle_scale)
+                            current_feed = base_feed * feed_scale
+                            pred_row['feed_qty_kg'] = current_feed
+                            pred_row['feed_squared'] = current_feed ** 2
                             pred_row['avg_ai_attempts'] = expected_ai
-                            df_mysql['fodder_area_acres'] = pd.to_numeric(df_mysql['fodder_area_acres'], errors='coerce')
-                            pred_row['fodder_area_acres'] = float(df_mysql['fodder_area_acres'].mean())
+                            pred_row['fodder_area_acres'] = float(base_fodder if not pd.isna(base_fodder) else df_mysql['fodder_area_acres'].mean())
                             
                             if f"society_name_{soc}" in pred_row.columns: pred_row[f"society_name_{soc}"] = 1
                             if f"month_name_{target_month}" in pred_row.columns: pred_row[f"month_name_{target_month}"] = 1
                             
                             raw_pred = model.predict(pred_row)[0]
-                            pred_val = base_floor_yield if raw_pred <= 10.0 else raw_pred
+                            # ഓരോ സൊസൈറ്റിയുടെയും വലിപ്പത്തിനനുസരിച്ച് ഒരു മിനിമം ഫ്ലോർ വാല്യൂ സെറ്റ് ചെയ്യുന്നു
+                            soc_floor = max(100.0, float(soc_data['milk_collected_liters'].min() if not soc_data.empty else 100.0))
+                            pred_val = soc_floor if raw_pred <= 10.0 else raw_pred
+                            
                             total_pred += pred_val
                             breakdown.append({ln["col_name"]: soc, "Predicted Yield": round(pred_val, 1)})
                         
                         st.success(ln["pred_total_success"].format(val=total_pred))
-                        st.dataframe(pd.DataFrame(breakdown), use_container_width=True, hide_index=True)
-            else: st.info(ln["need_more_data"])
-        except Exception as e: st.error(f"⚠️ Error: {e}")
+                        # 💡 width='stretch' അപ്ലൈ ചെയ്തു
+                        st.dataframe(pd.DataFrame(breakdown), width='stretch', hide_index=True)
+            else: 
+                st.info(ln["need_more_data"])
+        except Exception as e: 
+            st.error(f"⚠️ Error: {e}")
 
     # ----------------------------------------------------
     # Page 3: AI Analyst (Insights & Checklists) - FIXED
