@@ -479,6 +479,7 @@ if authentication_status:
                 if 'cattle_count' in df_mysql.columns and 'milk_collected_liters' in df_mysql.columns:
                     total_milk = df_mysql['milk_collected_liters'].sum()
                     total_cattle = df_mysql['cattle_count'].sum()
+                    total_cattle = pd.to_numeric(total_cattle, errors='coerce')
                     avg_milk_per_cow_daily = ((total_milk / total_cattle)/30) if total_cattle > 0 else 10.0
                 else:
                     avg_milk_per_cow_daily = 10.0
@@ -489,6 +490,7 @@ if authentication_status:
                 # കൃത്രിമ ബീജസങ്കലന ഇൻസൈറ്റ്സ്
                 high_ai_soc = []
                 if 'avg_ai_attempts' in df_mysql.columns:
+                    df_mysql['avg_ai_attempts'] = pd.to_numeric(df_mysql['avg_ai_attempts'], errors='coerce')
                     high_ai_soc = df_mysql[df_mysql['avg_ai_attempts'] >= 2.5]['society_name'].unique().tolist()
                 
                 # ഭാഷാ അടിസ്ഥാനത്തിലുള്ള വിവരങ്ങൾ (Updated with 'Experienced Officials' meaning)
