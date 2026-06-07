@@ -307,14 +307,23 @@ if authentication_status:
             df_mysql = pd.read_sql("SELECT * FROM milk_procurement", conn)
             conn.close()
             if not df_mysql.empty:
-                m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-                m_col1.metric(ln["total_milk"], f"{df_mysql['milk_collected_liters'].sum():,} Lts")
-                m_col2.metric(ln["total_cattle"], f"{df_mysql['cattle_count'].sum():,}")
+               # 1. ആദ്യം തന്നെ കണക്കുകൂട്ടാൻ ഉപയോഗിക്കുന്ന കോളങ്ങൾ സംഖ്യകളാക്കി (Numeric) മാറ്റുക
+                df_mysql['milk_collected_liters'] = pd.to_numeric(df_mysql['milk_collected_liters'], errors='coerce')
+                df_mysql['cattle_count'] = pd.to_numeric(df_mysql['cattle_count'], errors='coerce')
                 df_mysql['avg_farmer_age'] = pd.to_numeric(df_mysql['avg_farmer_age'], errors='coerce')
                 df_mysql['avg_ai_attempts'] = pd.to_numeric(df_mysql['avg_ai_attempts'], errors='coerce')
-                m_col3.metric(ln["avg_age"], f"{int(df_mysql['avg_farmer_age'].mean())} Years")
-                m_col4.metric(ln["ai_attempts"], f"{df_mysql['avg_ai_attempts'].mean():.2f}")
+
+                # 2. അതിനുശേഷം മെട്രിക്സുകൾ ഡിസ്‌പ്ലേ ചെയ്യുക
+                m_col1, m_col2, m_col3, m_col4 = st.columns(4)
                 
+                # ഇവിടെ തുക കാണുന്നതിന് തൊട്ടുമുമ്പ് float() അല്ലെങ്കിൽ int() ലേക്ക് മാറ്റുന്നത് എറർ പൂർണ്ണമായി ഒഴിവാക്കും
+                m_col1.metric(ln["total_milk"], f"{float(df_mysql['milk_collected_liters'].sum()):,.2f} Lts")
+                m_col2.metric(ln["total_cattle"], f"{int(df_mysql['cattle_count'].sum()):,}")
+                
+                # ശരാശരി കാണുമ്പോൾ NaN (ഡാറ്റ ഇല്ലാത്ത അവസ്ഥ) വന്നാൽ 0 കാണിക്കാൻ .fillna(0) ചേർത്തിട്ടുണ്ട്
+                m_col3.metric(ln["avg_age"], f"{int(df_mysql['avg_farmer_age'].mean() if not pd.isna(df_mysql['avg_farmer_age'].mean()) else 0)} Years")
+                m_col4.metric(ln["ai_attempts"], f"{float(df_mysql['avg_ai_attempts'].mean() if not pd.isna(df_mysql['avg_ai_attempts'].mean()) else 0):.2f}")
+                        
                 
                 st.divider()
                 chart_col1, chart_col2 = st.columns(2)
