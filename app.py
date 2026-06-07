@@ -241,7 +241,9 @@ if authentication_status:
         st.markdown(f'<div class="main-title">{ln["title"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="sub-title">{ln["subtitle"]}</div>', unsafe_allow_html=True)
         
-        if username == "unni":
+        # username വലിയക്ഷരത്തിലായാലും ചെറിയക്ഷരത്തിലായാലും അപ്‌ലോഡർ കാണാൻ .lower() ചേർത്തു
+        # നിങ്ങൾക്ക് ലോഗിൻ ചെയ്ത ആർക്കും ഇത് കാണിക്കണമെങ്കിൽ ഈ കണ്ടീഷൻ ഒഴിവാക്കി 'with st.container...' മുതൽ നേരിട്ട് എഴുതാം.
+        if username and username.lower() in ["unni", "unni r"]:
             with st.container(border=True):
                 st.markdown(f"### {ln['upload_title']}")
                 
@@ -284,47 +286,59 @@ if authentication_status:
                         st.dataframe(df.head(), use_container_width=True)
                         if st.button(ln["upload_btn"]):
                             try:
-                                #conn = get_db_connection()
-                                #cursor = conn.cursor()
                                 conn = sqlite3.connect('data.sqlite')
                                 cursor = conn.cursor()
+                                
+                                # SQLite-ന് അനുയോജ്യമായ INSERT OR REPLACE ക്വറി (? ഉപയോഗിച്ച്)
+                                sql = """INSERT OR REPLACE INTO milk_procurement 
+                                        (society_name, month_name, milk_collected_liters, cattle_count, breed_type, feed_qty_kg, fodder_area_acres, subsidy_amount, avg_ai_attempts, avg_farmer_age, shed_facility_score, vaccination_status) 
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
+                                
                                 for index, row in df.iterrows():
                                     liters = float(row['Liters'])
                                     calculated_subsidy = min(liters * 3.0, 40000.0)
-                                    sql = """INSERT INTO milk_procurement 
-                                            (society_name, month_name, milk_collected_liters, cattle_count, breed_type, feed_qty_kg, fodder_area_acres, subsidy_amount, avg_ai_attempts, avg_farmer_age, shed_facility_score, vaccination_status) 
-                                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                            ON DUPLICATE KEY UPDATE milk_collected_liters=VALUES(milk_collected_liters), cattle_count=VALUES(cattle_count);"""
-                                    cursor.execute(sql, (row['Society_Name'], row['Month'], liters, int(row['Cattle_Count']), str(row['Breed_Type']), float(row['Feed_Qty_Kg']), float(row['Fodder_Area']), calculated_subsidy, float(row['Avg_AI_Attempts']), int(row['Avg_Farmer_Age']), int(row['Shed_Score']), str(row['Vaccination'])))
+                                    
+                                    cursor.execute(sql, (
+                                        str(row['Society_Name']), 
+                                        str(row['Month']), 
+                                        liters, 
+                                        int(row['Cattle_Count']), 
+                                        str(row['Breed_Type']), 
+                                        float(row['Feed_Qty_Kg']), 
+                                        float(row['Fodder_Area']), 
+                                        calculated_subsidy, 
+                                        float(row['Avg_AI_Attempts']), 
+                                        int(row['Avg_Farmer_Age']), 
+                                        int(row['Shed_Score']), 
+                                        str(row['Vaccination'])
+                                    ))
                                 conn.commit()
-                                cursor.close(); conn.close()
-                                st.success("🎉 Data saved successfully!")
-                                # st.rerun() -> പേജ് മാറിപ്പോകാതിരിക്കാൻ ഇത് കമന്റ് ചെയ്യുന്നു
-                            except Exception as e: st.error(f"⚠️ Database Error: {e}")
+                                cursor.close()
+                                conn.close()
+                                st.success("🎉 Data saved successfully to SQLite!")
+                            except Exception as e: 
+                                st.error(f"⚠️ Database Error: {e}")
+
+        # ─── ഡാറ്റാബേസിൽ നിന്നുള്ള ചാർട്ടുകളും അനലിറ്റിക്സും കാണിക്കുന്ന ഭാഗം ───
         try:
-            #conn = get_db_connection()
             conn = sqlite3.connect('data.sqlite')
             df_mysql = pd.read_sql("SELECT * FROM milk_procurement", conn)
             conn.close()
             if not df_mysql.empty:
-               # 1. ആദ്യം തന്നെ കണക്കുകൂട്ടാൻ ഉപയോഗിക്കുന്ന കോളങ്ങൾ സംഖ്യകളാക്കി (Numeric) മാറ്റുക
+                # 1. കണക്കുകൂട്ടാൻ ഉപയോഗിക്കുന്ന കോളങ്ങൾ സംഖ്യകളാക്കി മാറ്റുന്നു
                 df_mysql['milk_collected_liters'] = pd.to_numeric(df_mysql['milk_collected_liters'], errors='coerce')
                 df_mysql['cattle_count'] = pd.to_numeric(df_mysql['cattle_count'], errors='coerce')
                 df_mysql['avg_farmer_age'] = pd.to_numeric(df_mysql['avg_farmer_age'], errors='coerce')
                 df_mysql['avg_ai_attempts'] = pd.to_numeric(df_mysql['avg_ai_attempts'], errors='coerce')
 
-                # 2. അതിനുശേഷം മെട്രിക്സുകൾ ഡിസ്‌പ്ലേ ചെയ്യുക
+                # 2. മെട്രിക്സുകൾ ഡിസ്‌പ്レー ചെയ്യുന്നു
                 m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-                
-                # ഇവിടെ തുക കാണുന്നതിന് തൊട്ടുമുമ്പ് float() അല്ലെങ്കിൽ int() ലേക്ക് മാറ്റുന്നത് എറർ പൂർണ്ണമായി ഒഴിവാക്കും
                 m_col1.metric(ln["total_milk"], f"{float(df_mysql['milk_collected_liters'].sum()):,.2f} Lts")
                 m_col2.metric(ln["total_cattle"], f"{int(df_mysql['cattle_count'].sum()):,}")
                 
-                # ശരാശരി കാണുമ്പോൾ NaN (ഡാറ്റ ഇല്ലാത്ത അവസ്ഥ) വന്നാൽ 0 കാണിക്കാൻ .fillna(0) ചേർത്തിട്ടുണ്ട്
                 m_col3.metric(ln["avg_age"], f"{int(df_mysql['avg_farmer_age'].mean() if not pd.isna(df_mysql['avg_farmer_age'].mean()) else 0)} Years")
                 m_col4.metric(ln["ai_attempts"], f"{float(df_mysql['avg_ai_attempts'].mean() if not pd.isna(df_mysql['avg_ai_attempts'].mean()) else 0):.2f}")
                         
-                
                 st.divider()
                 chart_col1, chart_col2 = st.columns(2)
                 with chart_col1:
@@ -333,11 +347,9 @@ if authentication_status:
                 
                 with chart_col2:
                     st.markdown(f"#### {ln['chart_2_title']}")
-                    # ഇവിടെ avg_ai_attempts കോളം സുരക്ഷിതമായി മാപ്പ് ചെയ്യുന്നു
                     ai_col = 'avg_ai_attempts' if 'avg_ai_attempts' in df_mysql.columns else df_mysql.columns[0]
                     st.plotly_chart(px.scatter(df_mysql, x=ai_col, y='milk_collected_liters', color='society_name'), use_container_width=True)
                 
-                # ബാക്കി രണ്ട് ചാർട്ടുകൾ കൂടി സുരക്ഷിതമായി കാണിക്കാൻ താഴെ പറയുന്ന കോഡ് കൂടി ചേർക്കുക
                 chart_col3, chart_col4 = st.columns(2)
                 with chart_col3:
                     st.markdown(f"#### {ln['chart_3_title']}")
@@ -349,8 +361,10 @@ if authentication_status:
                     sub_col = 'subsidy_amount' if 'subsidy_amount' in df_mysql.columns else ('subsidy' if 'subsidy' in df_mysql.columns else None)
                     if sub_col:
                         st.plotly_chart(px.line(df_mysql, x='society_name', y=sub_col, markers=True), use_container_width=True)
-            else: st.info(ln["db_empty"])
-        except Exception as e: st.error(f"⚠️ Error: {e}")
+            else: 
+                st.info(ln["db_empty"])
+        except Exception as e: 
+            st.error(f"⚠️ Error: {e}")
 
     # ----------------------------------------------------
     # Page 2: Production Forecasting (Fixed Language & Zero Yield)
