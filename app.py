@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit_authenticator as stauth
 import plotly.express as px
-import mysql.connector
+#import mysql.connector
 import pandas as pd
 import io
 import sqlite3
