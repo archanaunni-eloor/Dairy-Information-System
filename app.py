@@ -470,7 +470,10 @@ if authentication_status:
             conn = sqlite3.connect('data.sqlite')
             df_mysql = pd.read_sql("SELECT * FROM milk_procurement", conn)
             conn.close()
-            
+            numeric_cols = ['avg_farmer_age', 'milk_collected_liters', 'cattle_count', 'avg_ai_attempts']
+            for col in numeric_cols:
+                if col in df_mysql.columns:
+                    df_mysql[col] = pd.to_numeric(df_mysql[col], errors='coerce')
             if not df_mysql.empty:
                 df_mysql['avg_farmer_age'] = pd.to_numeric(df_mysql['avg_farmer_age'], errors='coerce')
                 avg_age_district = df_mysql['avg_farmer_age'].mean() if 'avg_farmer_age' in df_mysql.columns else 45.4
