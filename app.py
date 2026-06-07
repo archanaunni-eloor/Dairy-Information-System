@@ -4,6 +4,7 @@ import plotly.express as px
 import mysql.connector
 import pandas as pd
 import io
+import sqlite3
 
 # 1. Page Configuration
 st.set_page_config(page_title="Dairy Development Analytics", page_icon="🐄", layout="wide")
@@ -283,7 +284,9 @@ if authentication_status:
                         st.dataframe(df.head(), use_container_width=True)
                         if st.button(ln["upload_btn"]):
                             try:
-                                conn = get_db_connection()
+                                #conn = get_db_connection()
+                                #cursor = conn.cursor()
+                                conn = sqlite3.connect('data.sqlite')
                                 cursor = conn.cursor()
                                 for index, row in df.iterrows():
                                     liters = float(row['Liters'])
@@ -299,7 +302,8 @@ if authentication_status:
                                 # st.rerun() -> പേജ് മാറിപ്പോകാതിരിക്കാൻ ഇത് കമന്റ് ചെയ്യുന്നു
                             except Exception as e: st.error(f"⚠️ Database Error: {e}")
         try:
-            conn = get_db_connection()
+            #conn = get_db_connection()
+            conn = sqlite3.connect('data.sqlite')
             df_mysql = pd.read_sql("SELECT * FROM milk_procurement", conn)
             conn.close()
             if not df_mysql.empty:
@@ -343,7 +347,8 @@ if authentication_status:
     elif page == ln["menu_2"]:
         st.markdown(f'<div class="main-title">🔮 ML Production & Optimum Feed Engine</div>', unsafe_allow_html=True)
         try:
-            conn = get_db_connection()
+            #conn = get_db_connection()
+            conn = sqlite3.connect('data.sqlite')
             df_mysql = pd.read_sql("SELECT society_name, month_name, milk_collected_liters, feed_qty_kg, cattle_count, fodder_area_acres, avg_ai_attempts FROM milk_procurement", conn)
             conn.close()
             
@@ -454,7 +459,8 @@ if authentication_status:
     elif page == ln["menu_3"]:
         st.markdown(f'<div class="main-title">{ln["ai_diag_title"]}</div>', unsafe_allow_html=True)
         try:
-            conn = get_db_connection()
+            #conn = get_db_connection()
+            conn = sqlite3.connect('data.sqlite')
             df_mysql = pd.read_sql("SELECT * FROM milk_procurement", conn)
             conn.close()
             
